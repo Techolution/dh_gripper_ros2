@@ -1,4 +1,4 @@
-Header header
+std_msgs/Header header
 bool is_initialized
 int32 grip_state
 float32 position

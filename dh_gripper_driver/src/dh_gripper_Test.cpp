@@ -1,326 +1,322 @@
 #include <iostream>
-#include "ros/ros.h"
-#include "dh_gripper_msgs/GripperCtrl.h"
-#include "dh_gripper_msgs/GripperState.h"
-#include "dh_gripper_msgs/GripperRotCtrl.h"
-#include "dh_gripper_msgs/GripperRotState.h"
+#include "rclcpp/rclcpp.hpp"
+#include "dh_gripper_msgs/msg/gripper_ctrl.hpp"
+#include "dh_gripper_msgs/msg/gripper_state.hpp"
+#include "dh_gripper_msgs/msg/gripper_rot_ctrl.hpp"
+#include "dh_gripper_msgs/msg/gripper_rot_state.hpp"
 
 
-ros::Subscriber _sub_grip_state ;
-ros::Publisher _gripper_ctrl_pub;
-ros::Subscriber _sub_rot_state ;
-ros::Publisher _rot_ctrl_pub;
+dh_gripper_msgs::msg::GripperState _g_state;
+dh_gripper_msgs::msg::GripperRotState _r_state;
 
-dh_gripper_msgs::GripperState _g_state;
-dh_gripper_msgs::GripperRotState _r_state;
-
-void _update_gripper_state(const dh_gripper_msgs::GripperState::ConstPtr& msg)
+void _update_gripper_state(const dh_gripper_msgs::msg::GripperState::SharedPtr msg)
 {
-        _g_state.header = msg->header;
-        _g_state.is_initialized = msg->is_initialized;
-        
-        _g_state.grip_state  =  msg->grip_state;
-        _g_state.position = msg->position;
-        _g_state.target_position = msg->target_position;
-        _g_state.target_force = msg->target_force;
-         //ROS_INFO("state : %ld %lf %lf %lf %lf", _g_state.is_initialized, _g_state.grip_state, _g_state.position, _g_state.target_position, _g_state.target_force);
+    _g_state = *msg;
 }
 
-void _update_gripper_rot_state(const dh_gripper_msgs::GripperRotState::ConstPtr& msg)
+void _update_gripper_rot_state(const dh_gripper_msgs::msg::GripperRotState::SharedPtr msg)
 {
-        _r_state.header = msg->header;
-        _r_state.rot_state = msg->rot_state;
-        _r_state.angle = msg->angle;
-        _r_state.target_angle = msg->target_angle;
-        _r_state.target_force = msg->target_force;
+    _r_state = *msg;
 }
 
-void AG95_Test()
+void AG95_Test(rclcpp::Node::SharedPtr node, rclcpp::Publisher<dh_gripper_msgs::msg::GripperCtrl>::SharedPtr gripper_ctrl_pub)
 {
-        dh_gripper_msgs::GripperCtrl msg_g_ctrl;
-        msg_g_ctrl.initialize = true;
-        msg_g_ctrl.position = 100;
-        msg_g_ctrl.force = 100;
-        msg_g_ctrl.speed = 100;
-        _gripper_ctrl_pub.publish(msg_g_ctrl);
-        
-        while(!_g_state.is_initialized)
-        {
-                ros::spinOnce();
-        }
+    dh_gripper_msgs::msg::GripperCtrl msg_g_ctrl;
+    msg_g_ctrl.initialize = true;
+    msg_g_ctrl.position = 100;
+    msg_g_ctrl.force = 100;
+    msg_g_ctrl.speed = 100;
+    gripper_ctrl_pub->publish(msg_g_ctrl);
 
-        int test_state = 0;
-       while (ros::ok())
+    while(!_g_state.is_initialized)
+    {
+        rclcpp::spin_some(node);
+    }
+
+    int test_state = 0;
+    while (rclcpp::ok())
+    {
+        switch(test_state)
         {
-                switch(test_state)
-                {
-                        case 0:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 100;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 1;
-                                break;
-                        case 1:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 2;
-                                break;
-                        case 2:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 3;
-                                break;
-                        case 3:
-                                ros::Duration(0.2).sleep();
-                                test_state = 4;
-                        case 4:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 0;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 5;
-                                break;
-                        case 5:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 6;
-                                break;
-                        case 6:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 7;
-                                break;
-                        case 7:
-                                ros::Duration(0.2).sleep();
-                                test_state = 0;
-                }
-                ros::spinOnce();
+            case 0:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 100;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 1;
+                break;
+            case 1:
+                if(_g_state.grip_state == 0)
+                    test_state = 2;
+                break;
+            case 2:
+                if(_g_state.grip_state != 0)
+                    test_state = 3;
+                break;
+            case 3:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 4;
+                break;
+            case 4:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 0;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 5;
+                break;
+            case 5:
+                if(_g_state.grip_state == 0)
+                    test_state = 6;
+                break;
+            case 6:
+                if(_g_state.grip_state != 0)
+                    test_state = 7;
+                break;
+            case 7:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 0;
+                break;
         }
+        rclcpp::spin_some(node);
+    }
 }
 
-void DH3_Test()
+void DH3_Test(rclcpp::Node::SharedPtr node, rclcpp::Publisher<dh_gripper_msgs::msg::GripperCtrl>::SharedPtr gripper_ctrl_pub, rclcpp::Publisher<dh_gripper_msgs::msg::GripperCtrl>::SharedPtr rot_ctrl_pub)
 {
-        dh_gripper_msgs::GripperCtrl msg_g_ctrl;
-        msg_g_ctrl.initialize = true;
-        msg_g_ctrl.position = 1000;
-        msg_g_ctrl.force = 100;
-        msg_g_ctrl.speed = 100;
-        _gripper_ctrl_pub.publish(msg_g_ctrl);
-        
-        while(!_g_state.is_initialized)
-        {
-                ros::spinOnce();
-        }
+    dh_gripper_msgs::msg::GripperCtrl msg_g_ctrl;
+    msg_g_ctrl.initialize = true;
+    msg_g_ctrl.position = 1000;
+    msg_g_ctrl.force = 100;
+    msg_g_ctrl.speed = 100;
+    gripper_ctrl_pub->publish(msg_g_ctrl);
 
-        int test_state = 0;
-       while (ros::ok())
+    while(!_g_state.is_initialized)
+    {
+        rclcpp::spin_some(node);
+    }
+
+    int test_state = 0;
+    while (rclcpp::ok())
+    {
+        switch(test_state)
         {
-                switch(test_state)
-                {
-                        case 0:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 1000;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 1;
-                                break;
-                        case 1:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 2;
-                                break;
-                        case 2:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 3;
-                                break;
-                        case 3:
-                                ros::Duration(0.2).sleep();
-                                test_state = 4;
-                        case 4:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 0;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 5;
-                                break;
-                        case 5:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 6;
-                                break;
-                        case 6:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 7;
-                                break;
-                        case 7:
-                                ros::Duration(0.2).sleep();
-                                test_state = 0;
-                }
-                ros::spinOnce();
+            case 0:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 1000;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 1;
+                break;
+            case 1:
+                if(_g_state.grip_state == 0)
+                    test_state = 2;
+                break;
+            case 2:
+                if(_g_state.grip_state != 0)
+                    test_state = 3;
+                break;
+            case 3:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 4;
+                break;
+            case 4:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 0;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 5;
+                break;
+            case 5:
+                if(_g_state.grip_state == 0)
+                    test_state = 6;
+                break;
+            case 6:
+                if(_g_state.grip_state != 0)
+                    test_state = 7;
+                break;
+            case 7:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 0;
+                break;
         }
+        rclcpp::spin_some(node);
+    }
 }
 
-void ModbusGripper_test()
+void ModbusGripper_test(rclcpp::Node::SharedPtr node, rclcpp::Publisher<dh_gripper_msgs::msg::GripperCtrl>::SharedPtr gripper_ctrl_pub)
 {
-        dh_gripper_msgs::GripperCtrl msg_g_ctrl;
-        msg_g_ctrl.initialize = true;
-        msg_g_ctrl.position = 1000;
-        msg_g_ctrl.force = 100;
-        msg_g_ctrl.speed = 100;
-        _gripper_ctrl_pub.publish(msg_g_ctrl);
-        
-        while(!_g_state.is_initialized)
-        {
-                ros::spinOnce();
-        }
+    dh_gripper_msgs::msg::GripperCtrl msg_g_ctrl;
+    msg_g_ctrl.initialize = true;
+    msg_g_ctrl.position = 1000;
+    msg_g_ctrl.force = 100;
+    msg_g_ctrl.speed = 100;
+    gripper_ctrl_pub->publish(msg_g_ctrl);
 
-        int test_state = 0;
-       while (ros::ok())
+    while(!_g_state.is_initialized)
+    {
+        rclcpp::spin_some(node);
+    }
+
+    int test_state = 0;
+    while (rclcpp::ok())
+    {
+        switch(test_state)
         {
-                switch(test_state)
-                {
-                        case 0:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 1000;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 1;
-                                break;
-                        case 1:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 2;
-                                break;
-                        case 2:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 3;
-                                break;
-                        case 3:
-                                ros::Duration(0.2).sleep();
-                                test_state = 4;
-                        case 4:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 0;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 5;
-                                break;
-                        case 5:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 6;
-                                break;
-                        case 6:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 7;
-                                break;
-                        case 7:
-                                ros::Duration(0.2).sleep();
-                                test_state = 0;
-                }
-                ros::spinOnce();
+            case 0:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 1000;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 1;
+                break;
+            case 1:
+                if(_g_state.grip_state == 0)
+                    test_state = 2;
+                break;
+            case 2:
+                if(_g_state.grip_state != 0)
+                    test_state = 3;
+                break;
+            case 3:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 4;
+                break;
+            case 4:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 0;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 5;
+                break;
+            case 5:
+                if(_g_state.grip_state == 0)
+                    test_state = 6;
+                break;
+            case 6:
+                if(_g_state.grip_state != 0)
+                    test_state = 7;
+                break;
+            case 7:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 0;
+                break;
         }
+        rclcpp::spin_some(node);
+    }
 }
 
-void RGI_test()
+void RGI_test(rclcpp::Node::SharedPtr node, rclcpp::Publisher<dh_gripper_msgs::msg::GripperCtrl>::SharedPtr gripper_ctrl_pub, rclcpp::Publisher<dh_gripper_msgs::msg::GripperCtrl>::SharedPtr rot_ctrl_pub)
 {
-        dh_gripper_msgs::GripperCtrl msg_g_ctrl;
-        msg_g_ctrl.initialize = true;
-        msg_g_ctrl.position = 1000;
-        msg_g_ctrl.force = 100;
-        msg_g_ctrl.speed = 100;
-        _gripper_ctrl_pub.publish(msg_g_ctrl);
-        
-        while(!_g_state.is_initialized)
-        {
-                ros::spinOnce();
-        }
+    dh_gripper_msgs::msg::GripperCtrl msg_g_ctrl;
+    msg_g_ctrl.initialize = true;
+    msg_g_ctrl.position = 1000;
+    msg_g_ctrl.force = 100;
+    msg_g_ctrl.speed = 100;
+    gripper_ctrl_pub->publish(msg_g_ctrl);
 
-        int test_state = 0;
-       while (ros::ok())
+    while(!_g_state.is_initialized)
+    {
+        rclcpp::spin_some(node);
+    }
+
+    int test_state = 0;
+    while (rclcpp::ok())
+    {
+        switch(test_state)
         {
-                switch(test_state)
-                {
-                        case 0:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 1000;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 1;
-                                break;
-                        case 1:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 2;
-                                break;
-                        case 2:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 3;
-                                break;
-                        case 3:
-                                ros::Duration(0.2).sleep();
-                                test_state = 4;
-                        case 4:
-                                msg_g_ctrl.initialize = false;
-                                msg_g_ctrl.position = 0;
-                                msg_g_ctrl.force = 100;
-                                msg_g_ctrl.speed = 100;
-                                _gripper_ctrl_pub.publish(msg_g_ctrl);
-                                test_state = 5;
-                                break;
-                        case 5:
-                                if(_g_state.grip_state == 0);
-                                        test_state = 6;
-                                break;
-                        case 6:
-                                if(_g_state.grip_state != 0);
-                                        test_state = 7;
-                                break;
-                        case 7:
-                                ros::Duration(0.2).sleep();
-                                test_state = 0;
-                }
-                ros::spinOnce();
+            case 0:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 1000;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 1;
+                break;
+            case 1:
+                if(_g_state.grip_state == 0)
+                    test_state = 2;
+                break;
+            case 2:
+                if(_g_state.grip_state != 0)
+                    test_state = 3;
+                break;
+            case 3:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 4;
+                break;
+            case 4:
+                msg_g_ctrl.initialize = false;
+                msg_g_ctrl.position = 0;
+                msg_g_ctrl.force = 100;
+                msg_g_ctrl.speed = 100;
+                gripper_ctrl_pub->publish(msg_g_ctrl);
+                test_state = 5;
+                break;
+            case 5:
+                if(_g_state.grip_state == 0)
+                    test_state = 6;
+                break;
+            case 6:
+                if(_g_state.grip_state != 0)
+                    test_state = 7;
+                break;
+            case 7:
+                rclcpp::sleep_for(std::chrono::milliseconds(200));
+                test_state = 0;
+                break;
         }
+        rclcpp::spin_some(node);
+    }
 }
 
 int main(int argc, char** argv)
 {
-
-    ros::init(argc, argv, "dh_gripper_tester");
-    ros::NodeHandle n("~");
+    rclcpp::init(argc, argv);
+    auto node = rclcpp::Node::make_shared("dh_gripper_tester");
+    node->declare_parameter<std::string>("Gripper_Model", "AG95_MB");
     std::string _gripper_model;
-    n.param<std::string>("Gripper_Model", _gripper_model,"AG95_MB");
+    node->get_parameter("Gripper_Model", _gripper_model);
 
-    ROS_INFO("Gripper_model : %s", _gripper_model.c_str());
-    _sub_grip_state = n.subscribe("/gripper/states", 50, _update_gripper_state);
-    _gripper_ctrl_pub = n.advertise<dh_gripper_msgs::GripperCtrl>("/gripper/ctrl", 50);
+    RCLCPP_INFO(node->get_logger(), "Gripper_model : %s", _gripper_model.c_str());
+    auto _sub_grip_state = node->create_subscription<dh_gripper_msgs::msg::GripperState>(
+        "/gripper/states", 50, _update_gripper_state);
+    auto _gripper_ctrl_pub = node->create_publisher<dh_gripper_msgs::msg::GripperCtrl>("/gripper/ctrl", 50);
 
     if(_gripper_model.find("AG95_CAN")!=_gripper_model.npos)
     {
-        AG95_Test();
+        AG95_Test(node, _gripper_ctrl_pub);
     }
     else if(_gripper_model.find("DH3")!=_gripper_model.npos)
     {
-        _sub_rot_state = n.subscribe("/gripper/rot_states", 50, _update_gripper_state);
-        _rot_ctrl_pub = n.advertise<dh_gripper_msgs::GripperCtrl>("/gripper/rot_ctrl", 50);
-        DH3_Test();
+        auto _sub_rot_state = node->create_subscription<dh_gripper_msgs::msg::GripperRotState>(
+            "/gripper/rot_states", 50, _update_gripper_rot_state);
+        auto _rot_ctrl_pub = node->create_publisher<dh_gripper_msgs::msg::GripperCtrl>("/gripper/rot_ctrl", 50);
+        DH3_Test(node, _gripper_ctrl_pub, _rot_ctrl_pub);
     }
     else if(_gripper_model.find("AG95_MB")!=_gripper_model.npos
                 ||_gripper_model.find("PGE")!=_gripper_model.npos
                 ||_gripper_model.find("PGC")!=_gripper_model.npos
                 ||_gripper_model.find("CGC")!=_gripper_model.npos)
     {
-        ModbusGripper_test();
+        ModbusGripper_test(node, _gripper_ctrl_pub);
     }
     else if(_gripper_model.find("RGI")!=_gripper_model.npos)
     {
-        _sub_rot_state = n.subscribe("/gripper/rot_states", 50, _update_gripper_state);
-        _rot_ctrl_pub = n.advertise<dh_gripper_msgs::GripperCtrl>("/gripper/rot_ctrl", 50);
-        RGI_test();
+        auto _sub_rot_state = node->create_subscription<dh_gripper_msgs::msg::GripperRotState>(
+            "/gripper/rot_states", 50, _update_gripper_rot_state);
+        auto _rot_ctrl_pub = node->create_publisher<dh_gripper_msgs::msg::GripperCtrl>("/gripper/rot_ctrl", 50);
+        RGI_test(node, _gripper_ctrl_pub, _rot_ctrl_pub);
     }
     else
     {
-            return -1;
+        return -1;
     }
+    rclcpp::shutdown();
     return 0;
 }

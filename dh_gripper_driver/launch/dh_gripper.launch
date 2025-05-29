@@ -10,7 +10,7 @@
         DH3         : DH3
         RGI-Series  : RGI
     -->
-    <arg name="GripperModel" default="PGE"/>
+    <arg name="GripperModel" default="PGC140"/>
     <arg name="Connectport" default="/dev/ttyUSB0"/>
     <arg name="Baudrate" default="115200"/>
 
